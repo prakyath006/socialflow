@@ -1,0 +1,111 @@
+.analytics-page { max-width: 1000px; margin: 0 auto; }
+
+.period-selector { display: flex; gap: var(--sp-2); }
+
+.analytics-section { margin-bottom: var(--sp-8); }
+.analytics-section h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--sp-4);
+}
+
+.chart-container { padding: var(--sp-6); }
+
+/* Bar Chart */
+.bar-chart { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.bar-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-transform: capitalize;
+  flex-shrink: 0;
+}
+
+.bar-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.bar-track {
+  flex: 1;
+  height: 28px;
+  background: var(--bg-input);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  min-width: 4px;
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bar-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  width: 40px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Engagement Cards */
+.engagement-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.engagement-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.engagement-platform {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--text-primary);
+}
+
+.engagement-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.engagement-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+
+.engagement-val {
+  font-weight: 700;
+  color: var(--text-primary);
+}
