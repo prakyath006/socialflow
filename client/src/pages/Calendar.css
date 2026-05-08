@@ -1,0 +1,104 @@
+.calendar-page { max-width: 1000px; margin: 0 auto; }
+
+.calendar-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.calendar-month-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 160px;
+  text-align: center;
+}
+
+.calendar-card { padding: 0; overflow: hidden; }
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.calendar-day-header {
+  padding: var(--sp-3) var(--sp-2);
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  background: var(--bg-input);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.calendar-cell {
+  min-height: 100px;
+  padding: var(--sp-2);
+  border-bottom: 1px solid var(--border-light);
+  border-right: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background 120ms;
+}
+
+.calendar-cell:nth-child(7n) { border-right: none; }
+.calendar-cell.empty { background: var(--bg-input); }
+.calendar-cell:hover:not(.empty) { background: var(--bg-hover); }
+
+.calendar-cell.today {
+  background: var(--color-accent-light);
+}
+
+.cell-date {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 2px 6px;
+  align-self: flex-end;
+}
+
+.cell-date.today-dot {
+  background: var(--color-accent);
+  color: #fff;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-weight: 700;
+}
+
+.cell-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.cell-post {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: opacity 150ms;
+}
+.cell-post:hover { opacity: 0.8; }
+
+.cell-post-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.status-bg-published { background: #e6f9ed; color: #1a8a3f; }
+.status-bg-scheduled { background: #e8f1ff; color: #0055cc; }
+.status-bg-draft { background: #f0f0ec; color: var(--text-tertiary); }
+.status-bg-failed { background: #fff0f0; color: #d92d20; }
+
+.cell-more { font-size: 10px; color: var(--text-tertiary); padding: 0 6px; }
