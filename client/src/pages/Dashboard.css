@@ -1,0 +1,157 @@
+.dashboard-container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.stats-row {
+  margin-bottom: var(--sp-8);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: var(--sp-6);
+}
+
+.dashboard-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Posts List */
+.posts-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.post-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--border-light);
+  transition: background 150ms;
+}
+
+.post-item:last-child {
+  border-bottom: none;
+}
+
+.post-item:hover {
+  background: var(--bg-hover);
+}
+
+.post-platform-icons {
+  display: flex;
+  gap: 4px;
+}
+
+.platform-tag {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.tag-facebook { background: var(--color-facebook); }
+.tag-instagram { background: var(--color-instagram); }
+.tag-twitter { background: var(--color-twitter); }
+.tag-linkedin { background: var(--color-linkedin); }
+
+.post-content-preview {
+  flex: 1;
+  min-width: 0;
+}
+
+.post-content-preview p {
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.text-truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-text {
+  text-transform: capitalize;
+  font-weight: 600;
+}
+
+.status-published { color: var(--color-success); }
+.status-scheduled { color: var(--color-accent); }
+.status-failed { color: var(--color-error); }
+
+/* Channels List */
+.channels-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+}
+
+.channel-card-mini {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+}
+
+.channel-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.channel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.channel-status {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.channel-status.online { color: var(--color-success); }
+.channel-status.offline { color: var(--text-placeholder); }
+
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
