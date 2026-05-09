@@ -1,0 +1,106 @@
+.media-page { max-width: 1000px; margin: 0 auto; }
+
+.media-actions { display: flex; align-items: center; gap: var(--sp-3); }
+
+.view-toggle {
+  display: flex;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.view-toggle .btn-icon {
+  border-radius: 0;
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-tertiary);
+  font-size: 16px;
+  padding: 6px 10px;
+}
+.view-toggle .btn-icon.active {
+  background: var(--bg-selected);
+  color: var(--color-accent);
+}
+
+/* Grid View */
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--sp-4);
+}
+
+.media-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 200ms;
+}
+.media-card:hover { box-shadow: var(--shadow-sm); }
+
+.media-card-img {
+  width: 100%;
+  height: 140px;
+  background: var(--bg-input);
+  overflow: hidden;
+}
+.media-card-img img, .media-card-img video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.media-card-info { padding: var(--sp-3); }
+
+.media-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.media-card-size {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* List View */
+.media-list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--border-light);
+}
+.media-list-row:last-child { border-bottom: none; }
+
+.media-list-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.media-list-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.media-list-name { flex: 1; font-size: 13px; font-weight: 500; }
+.media-list-size { font-size: 12px; color: var(--text-tertiary); width: 80px; }
+.media-list-date { font-size: 12px; color: var(--text-tertiary); width: 100px; }
+
+/* Large drop zone */
+.media-drop-zone-lg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: 64px 32px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+.media-drop-zone-lg h3 { font-size: 16px; color: var(--text-secondary); font-weight: 600; }
+.media-drop-zone-lg p { font-size: 13px; }
