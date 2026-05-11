@@ -83,16 +83,7 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="login-divider"><span>or</span></div>
 
-          <div className="login-demo-box">
-            <p>Try demo account</p>
-            <button className="btn btn-outline btn-lg login-submit"
-              onClick={() => { setEmail('demo@sanjutechnologies.com'); setPassword('demo123'); }}
-            >
-              Use demo credentials
-            </button>
-          </div>
 
           <p className="login-switch">
             {isRegister ? 'Already have an account? ' : "Don't have an account? "}
