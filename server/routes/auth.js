@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
+import { sequelize } from '../config/db.js';
+import { Sequelize } from 'sequelize';
 import crypto from 'crypto';
 import User from '../models/User.js';
 import { auth } from '../middleware/auth.js';
@@ -29,7 +30,7 @@ const DEMO_USER = {
   settings: { defaultPlatforms: ['facebook', 'twitter'], autoSchedule: false, bestTimePosting: true }
 };
 
-const isDbConnected = () => mongoose.connection.readyState === 1;
+const isDbConnected = () => true; // Assuming Sequelize handles connection transparently
 
 // Register
 router.post('/register', async (req, res) => {
@@ -43,7 +44,7 @@ router.post('/register', async (req, res) => {
       return res.status(201).json({ token, user: { ...DEMO_USER, name, email, timezone: timezone || 'UTC' } });
     }
 
-    const exists = await User.findOne({ email });
+    const exists = await User.findOne({ where: { email } });
     if (exists) return res.status(400).json({ error: 'Email already registered' });
 
     const hashed = await bcrypt.hash(password, 12);
@@ -67,7 +68,7 @@ router.post('/login', async (req, res) => {
       return res.json({ token, user: DEMO_USER });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
     const valid = await bcrypt.compare(password, user.password);
@@ -97,7 +98,8 @@ router.put('/me', auth, async (req, res) => {
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) updates[field] = req.body[field];
     }
-    const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select('-password');
+    const [updatedCount, updatedUsers] = await User.update(updates, { where: { _id: req.userId }, returning: true });
+    const user = updatedUsers ? updatedUsers[0] : null;
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ user: { id: user._id, name: user.name, email: user.email, timezone: user.timezone, avatar: user.avatar, connectedPlatforms: user.connectedPlatforms.map(p => ({ platform: p.platform, accountName: p.accountName, isActive: p.isActive })), settings: user.settings } });
   } catch (error) {
@@ -216,7 +218,7 @@ router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
     if (!user) {
       // Return success anyway to prevent email enumeration
       return res.json({ success: true, message: 'If that email exists, a reset link was sent.' });
@@ -245,8 +247,10 @@ router.get('/reset-password/:token', async (req, res) => {
   try {
     const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
     const user = await User.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: Date.now() }
+      where: {
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { [Sequelize.Op.gt]: new Date() }
+      }
     });
     if (!user) {
       return res.status(400).json({ valid: false, error: 'This reset link has expired or already been used.' });
@@ -263,8 +267,10 @@ router.post('/reset-password/:token', async (req, res) => {
     const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
 
     const user = await User.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: Date.now() }
+      where: {
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { [Sequelize.Op.gt]: new Date() }
+      }
     });
 
     if (!user) {

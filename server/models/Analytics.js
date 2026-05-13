@@ -1,25 +1,21 @@
-import mongoose from 'mongoose';
+import { DataTypes } from 'sequelize';
+import { sequelize } from '../config/db.js';
 
-const analyticsSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  post: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
-  platform: String,
-  date: { type: Date, default: Date.now },
-  
-  metrics: {
-    impressions: { type: Number, default: 0 },
-    reach: { type: Number, default: 0 },
-    engagement: { type: Number, default: 0 },
-    likes: { type: Number, default: 0 },
-    comments: { type: Number, default: 0 },
-    shares: { type: Number, default: 0 },
-    saves: { type: Number, default: 0 },
-    clicks: { type: Number, default: 0 },
-    views: { type: Number, default: 0 },
-    followers: { type: Number, default: 0 }
+const Analytics = sequelize.define('Analytics', {
+  _id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  user: { type: DataTypes.UUID, allowNull: false },
+  post: DataTypes.UUID,
+  platform: DataTypes.STRING,
+  date: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  metrics: { 
+    type: DataTypes.JSONB, 
+    defaultValue: {
+      impressions: 0, reach: 0, engagement: 0, likes: 0, comments: 0, shares: 0, saves: 0, clicks: 0, views: 0, followers: 0
+    }
   }
-}, { timestamps: true });
+}, { 
+  timestamps: true,
+  indexes: [{ fields: ['user', 'platform', 'date'] }]
+});
 
-analyticsSchema.index({ user: 1, platform: 1, date: -1 });
-
-export default mongoose.model('Analytics', analyticsSchema);
+export default Analytics;

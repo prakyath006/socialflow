@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { DateTime } from 'luxon';
-import mongoose from 'mongoose';
-import Post from '../models/Post.js';
+import { Sequelize } from 'sequelize';
+import { Post, User } from '../models/index.js';
 import publishingEngine from './publishingEngine.js';
 
 /**
@@ -21,7 +21,7 @@ class SchedulingEngine {
 
     // Check every minute for scheduled posts
     this.cronJob = cron.schedule('* * * * *', async () => {
-      if (mongoose.connection.readyState === 1) {
+      if (true) {
         await this.processDuePosts();
       }
     });
@@ -41,10 +41,13 @@ class SchedulingEngine {
   async processDuePosts() {
     try {
       const now = new Date();
-      const duePosts = await Post.find({
-        status: 'scheduled',
-        'schedule.scheduledAt': { $lte: now }
-      }).populate('user');
+      const duePosts = await Post.findAll({
+        where: {
+          status: 'scheduled',
+          'schedule.scheduledAt': { [Sequelize.Op.lte]: now }
+        },
+        include: User
+      });
 
       for (const post of duePosts) {
         console.log(`⏰ Publishing scheduled post: ${post._id}`);
@@ -56,11 +59,12 @@ class SchedulingEngine {
       }
 
       // Also process queued posts (retries)
-      const queuedPosts = await Post.find({
-        status: 'queued',
-        'publishStatus.status': 'queued',
-        'publishStatus.lastRetryAt': {
-          $lte: new Date(Date.now() - 5 * 60 * 1000) // 5 min cooldown
+      const queuedPosts = await Post.findAll({
+        where: {
+          status: 'queued',
+          publishStatus: {
+            [Sequelize.Op.contains]: [{ status: 'queued' }]
+          }
         }
       });
 
@@ -80,7 +84,7 @@ class SchedulingEngine {
    * Schedule a post for future publishing
    */
   async schedulePost(postId, scheduledAt, timezone = 'UTC') {
-    const post = await Post.findById(postId);
+    const post = await Post.findByPk(postId);
     if (!post) throw new Error('Post not found');
 
     // Convert to UTC
@@ -91,6 +95,8 @@ class SchedulingEngine {
     post.schedule = { type: 'scheduled', scheduledAt: dt.toJSDate(), timezone };
     post.status = 'scheduled';
     post.publishStatus = post.platforms.map(p => ({ platform: p, status: 'scheduled' }));
+    post.changed('schedule', true);
+    post.changed('publishStatus', true);
     await post.save();
 
     return post;
@@ -105,7 +111,7 @@ class SchedulingEngine {
 
     for (const item of items) {
       try {
-        const post = new Post({
+        const post = await Post.create({
           user: userId,
           content: { text: item.text, hashtags: item.hashtags?.split(',').map(h => h.trim()) || [], link: item.link },
           platforms: item.platforms?.split(',').map(p => p.trim()) || [],
@@ -118,7 +124,6 @@ class SchedulingEngine {
           bulkImportId: bulkId,
           publishStatus: (item.platforms?.split(',') || []).map(p => ({ platform: p.trim(), status: 'scheduled' }))
         });
-        await post.save();
         results.push({ success: true, postId: post._id, scheduledAt: item.scheduledAt });
       } catch (error) {
         results.push({ success: false, error: error.message, text: item.text?.substring(0, 50) });

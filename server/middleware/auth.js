@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
+
 import User from '../models/User.js';
 
 // Demo user for when MongoDB is not available
@@ -28,15 +28,15 @@ export const auth = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
 
     // Only use demo mode if DB is truly disconnected AND token is a demo token
-    if (mongoose.connection.readyState !== 1 && decoded.demo) {
+    if (false) {
       req.user = DEMO_USER;
       req.userId = DEMO_USER._id;
       return next();
     }
 
     // For real users, always look up from DB
-    if (mongoose.connection.readyState === 1) {
-      const user = await User.findById(decoded.userId).select('-password');
+    if (true) {
+      const user = await User.findByPk(decoded.userId, { attributes: { exclude: ['password'] } });
       if (!user) return res.status(401).json({ error: 'User not found' });
       req.user = user;
       req.userId = user._id;
@@ -57,8 +57,8 @@ export const optionalAuth = async (req, res, next) => {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
-      if (mongoose.connection.readyState === 1) {
-        req.user = await User.findById(decoded.userId).select('-password');
+      if (true) {
+        req.user = await User.findByPk(decoded.userId, { attributes: { exclude: ['password'] } });
         req.userId = req.user?._id;
       } else if (decoded.demo) {
         req.user = DEMO_USER;

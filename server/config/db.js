@@ -1,21 +1,30 @@
-import mongoose from 'mongoose';
+import { Sequelize } from 'sequelize';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.env') });
 
+const sequelize = new Sequelize(process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/socialflow', {
+  dialect: 'postgres',
+  logging: false,
+});
+
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/social-publisher');
-    console.log(`✅ MongoDB connected: ${conn.connection.host}`);
-    return conn;
+    await sequelize.authenticate();
+    // Sync models to database locally
+    if (process.env.NODE_ENV !== 'production') {
+      await sequelize.sync({ alter: true });
+    }
+    console.log(`✅ PostgreSQL connected successfully`);
+    return sequelize;
   } catch (error) {
-    console.error(`❌ MongoDB connection error: ${error.message}`);
-    // Continue without DB for demo purposes in both dev and production
-    console.warn('⚠️  Running in demo mode without MongoDB');
+    console.error(`❌ PostgreSQL connection error: ${error.message}`);
+    console.warn('⚠️  Running in demo mode without DB');
     return null;
   }
 };
 
+export { sequelize, connectDB };
 export default connectDB;

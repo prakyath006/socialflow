@@ -1,6 +1,6 @@
-import Post from '../models/Post.js';
-import User from '../models/User.js';
+import { Post, User } from '../models/index.js';
 import { getAdapter } from '../adapters/index.js';
+import { Sequelize } from 'sequelize';
 
 /**
  * Token Manager — handles OAuth token refresh and expiry tracking
@@ -11,9 +11,13 @@ class TokenManager {
    */
   async refreshExpiringTokens() {
     try {
-      const users = await User.find({ 'connectedPlatforms.isActive': true });
+      // Note: In Postgres with JSONB, exact matching inside array of objects can be complex,
+      // so we fetch users who have at least one connected platform and filter in JS
+      const users = await User.findAll();
 
       for (const user of users) {
+        if (!user.connectedPlatforms || user.connectedPlatforms.length === 0) continue;
+        let updated = false;
         for (const conn of user.connectedPlatforms) {
           if (!conn.isActive || !conn.tokenExpiry) continue;
 
@@ -29,6 +33,7 @@ class TokenManager {
               conn.tokenExpiry = new Date(Date.now() + (newTokens.expiresIn || 3600) * 1000);
               conn.lastRefreshed = new Date();
 
+              updated = true;
               console.log(`🔑 Refreshed ${conn.platform} token for user ${user._id}`);
             } catch (error) {
               console.error(`❌ Failed to refresh ${conn.platform} token for ${user._id}:`, error.message);
@@ -36,7 +41,10 @@ class TokenManager {
             }
           }
         }
-        await user.save();
+        if (updated) {
+          user.changed('connectedPlatforms', true);
+          await user.save();
+        }
       }
     } catch (error) {
       console.error('Token refresh error:', error.message);
@@ -47,7 +55,7 @@ class TokenManager {
    * Connect a platform for a user
    */
   async connectPlatform(userId, platform, tokenData) {
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user) throw new Error('User not found');
 
     // Remove existing connection for this platform
@@ -69,6 +77,7 @@ class TokenManager {
       metadata: tokenData.metadata || {}
     });
 
+    user.changed('connectedPlatforms', true);
     await user.save();
     return user;
   }
@@ -77,11 +86,14 @@ class TokenManager {
    * Disconnect a platform
    */
   async disconnectPlatform(userId, platform) {
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user) throw new Error('User not found');
 
     const conn = user.connectedPlatforms.find(p => p.platform === platform);
-    if (conn) conn.isActive = false;
+    if (conn) {
+      conn.isActive = false;
+      user.changed('connectedPlatforms', true);
+    }
     await user.save();
     return user;
   }
@@ -90,7 +102,7 @@ class TokenManager {
    * Get token status for all connected platforms
    */
   async getTokenStatus(userId) {
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user) return [];
 
     return user.connectedPlatforms.map(conn => ({

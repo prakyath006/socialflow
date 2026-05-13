@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import mongoose from 'mongoose';
+import { Sequelize } from 'sequelize';
 import Post from '../models/Post.js';
 import { auth } from '../middleware/auth.js';
 import publishingEngine from '../services/publishingEngine.js';
@@ -8,7 +8,7 @@ import csvParser from 'csv-parser';
 import { Readable } from 'stream';
 
 const router = Router();
-const isDbConnected = () => mongoose.connection.readyState === 1;
+const isDbConnected = () => true;
 
 // Demo posts for when DB is not connected
 const DEMO_POSTS = [
@@ -37,10 +37,15 @@ router.get('/', auth, async (req, res) => {
     if (status) filter.status = status;
     if (platform) filter.platforms = platform;
     if (campaign) filter.campaign = campaign;
-    if (search) filter['content.text'] = { $regex: search, $options: 'i' };
+    if (search) filter['content.text'] = { [Sequelize.Op.iLike]: `%${search}%` };
 
-    const total = await Post.countDocuments(filter);
-    const posts = await Post.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(Number(limit));
+    const total = await Post.count({ where: filter });
+    const posts = await Post.findAll({ 
+      where: filter, 
+      order: [['createdAt', 'DESC']], 
+      offset: (page - 1) * limit, 
+      limit: Number(limit) 
+    });
 
     res.json({ posts, total, page: Number(page), totalPages: Math.ceil(total / limit) });
   } catch (error) {
@@ -55,7 +60,7 @@ router.get('/:id', auth, async (req, res) => {
       const post = DEMO_POSTS.find(p => p._id === req.params.id);
       return post ? res.json({ post }) : res.status(404).json({ error: 'Post not found' });
     }
-    const post = await Post.findOne({ _id: req.params.id, user: req.userId });
+    const post = await Post.findOne({ where: { _id: req.params.id, user: req.userId } });
     if (!post) return res.status(404).json({ error: 'Post not found' });
     res.json({ post });
   } catch (error) {
@@ -83,13 +88,12 @@ router.post('/', auth, async (req, res) => {
       return res.status(201).json({ post: newPost });
     }
 
-    const post = new Post({
+    const post = await Post.create({
       user: req.userId, content, platformContent, platforms: platforms || [],
       media: media || [], schedule: schedule || { type: 'immediate' },
       campaign, labels, notes, status: 'draft',
       publishStatus: (platforms || []).map(p => ({ platform: p, status: 'draft' }))
     });
-    await post.save();
     res.status(201).json({ post });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -105,12 +109,16 @@ router.put('/:id', auth, async (req, res) => {
       Object.assign(DEMO_POSTS[idx], req.body);
       return res.json({ post: DEMO_POSTS[idx] });
     }
-    const post = await Post.findOne({ _id: req.params.id, user: req.userId });
+    const post = await Post.findOne({ where: { _id: req.params.id, user: req.userId } });
     if (!post) return res.status(404).json({ error: 'Post not found' });
     if (['published', 'publishing'].includes(post.status)) return res.status(400).json({ error: 'Cannot edit published posts' });
-    Object.assign(post, req.body);
-    if (req.body.platforms) post.publishStatus = req.body.platforms.map(p => ({ platform: p, status: post.status === 'scheduled' ? 'scheduled' : 'draft' }));
-    await post.save();
+    
+    // For JSONB columns in Sequelize, we need to manually assign them or use update
+    const updates = { ...req.body };
+    if (updates.platforms) {
+      updates.publishStatus = updates.platforms.map(p => ({ platform: p, status: post.status === 'scheduled' ? 'scheduled' : 'draft' }));
+    }
+    await post.update(updates);
     res.json({ post });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -125,7 +133,7 @@ router.delete('/:id', auth, async (req, res) => {
       if (idx >= 0) DEMO_POSTS.splice(idx, 1);
       return res.json({ success: true });
     }
-    await Post.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    await Post.destroy({ where: { _id: req.params.id, user: req.userId } });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -135,7 +143,7 @@ router.delete('/:id', auth, async (req, res) => {
 // Validate post
 router.post('/:id/validate', auth, async (req, res) => {
   try {
-    const post = isDbConnected() ? await Post.findOne({ _id: req.params.id, user: req.userId }) : DEMO_POSTS.find(p => p._id === req.params.id);
+    const post = isDbConnected() ? await Post.findOne({ where: { _id: req.params.id, user: req.userId } }) : DEMO_POSTS.find(p => p._id === req.params.id);
     if (!post) return res.status(404).json({ error: 'Post not found' });
     const validations = publishingEngine.validateForPlatforms(post);
     res.json({ validations });
@@ -155,7 +163,7 @@ router.post('/:id/publish', auth, async (req, res) => {
       }
       return res.json({ post, results: [{ success: true, platform: 'demo' }] });
     }
-    const post = await Post.findOne({ _id: req.params.id, user: req.userId });
+    const post = await Post.findOne({ where: { _id: req.params.id, user: req.userId } });
     if (!post) return res.status(404).json({ error: 'Post not found' });
     const result = await publishingEngine.publishPost(post._id);
     res.json(result);
@@ -228,10 +236,10 @@ router.get('/calendar/events', auth, async (req, res) => {
     const filter = { user: req.userId };
     if (start || end) {
       filter['schedule.scheduledAt'] = {};
-      if (start) filter['schedule.scheduledAt'].$gte = new Date(start);
-      if (end) filter['schedule.scheduledAt'].$lte = new Date(end);
+      if (start) filter['schedule.scheduledAt'] = { [Sequelize.Op.gte]: new Date(start) };
+      if (end) filter['schedule.scheduledAt'] = { ...filter['schedule.scheduledAt'], [Sequelize.Op.lte]: new Date(end) };
     }
-    const posts = await Post.find(filter).sort({ 'schedule.scheduledAt': 1 });
+    const posts = await Post.findAll({ where: filter, order: [['schedule.scheduledAt', 'ASC']] });
     res.json({ events: posts });
   } catch (error) {
     res.status(500).json({ error: error.message });

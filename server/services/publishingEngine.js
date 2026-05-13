@@ -1,5 +1,5 @@
 import { getAdapter } from '../adapters/index.js';
-import Post from '../models/Post.js';
+import { Post, User } from '../models/index.js';
 
 /**
  * Publishing Engine — orchestrates multi-platform publishing
@@ -10,7 +10,7 @@ class PublishingEngine {
    * Publish a post to all target platforms
    */
   async publishPost(postId) {
-    const post = await Post.findById(postId).populate('user');
+    const post = await Post.findByPk(postId, { include: User });
     if (!post) throw new Error('Post not found');
 
     const results = [];
@@ -90,6 +90,7 @@ class PublishingEngine {
       post.status = 'queued';
     }
 
+    post.changed('publishStatus', true);
     await post.save();
     return { post, results };
   }
@@ -135,7 +136,7 @@ class PublishingEngine {
    * Retry failed publications for a post
    */
   async retryFailed(postId) {
-    const post = await Post.findById(postId);
+    const post = await Post.findByPk(postId);
     if (!post) throw new Error('Post not found');
 
     const failedPlatforms = post.publishStatus
@@ -153,6 +154,7 @@ class PublishingEngine {
       }
     });
     post.status = 'queued';
+    post.changed('publishStatus', true);
     await post.save();
 
     return this.publishPost(postId);

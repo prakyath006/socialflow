@@ -73,8 +73,13 @@ router.get('/', auth, async (req, res) => {
     const filter = { user: req.userId };
     if (type) filter.type = type;
 
-    const total = await Media.countDocuments(filter);
-    const media = await Media.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(Number(limit));
+    const total = await Media.count({ where: filter });
+    const media = await Media.findAll({ 
+      where: filter, 
+      order: [['createdAt', 'DESC']], 
+      offset: (page - 1) * limit, 
+      limit: Number(limit) 
+    });
 
     res.json({ media, total, page: Number(page), totalPages: Math.ceil(total / limit) });
   } catch (error) {
@@ -85,7 +90,7 @@ router.get('/', auth, async (req, res) => {
 // Delete media
 router.delete('/:id', auth, async (req, res) => {
   try {
-    await Media.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    await Media.destroy({ where: { _id: req.params.id, user: req.userId } });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

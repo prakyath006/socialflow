@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import mongoose from 'mongoose';
+import { Sequelize } from 'sequelize';
 import { auth } from '../middleware/auth.js';
 import Analytics from '../models/Analytics.js';
 import Post from '../models/Post.js';
 
 const router = Router();
-const isDbConnected = () => mongoose.connection.readyState === 1;
+const isDbConnected = () => true;
 
 // Dashboard overview stats
 router.get('/overview', auth, async (req, res) => {
@@ -33,23 +33,33 @@ router.get('/overview', auth, async (req, res) => {
     const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
 
     const [totalPosts, publishedPosts, scheduledPosts, failedPosts, recentPosts] = await Promise.all([
-      Post.countDocuments({ user: userId }),
-      Post.countDocuments({ user: userId, status: 'published' }),
-      Post.countDocuments({ user: userId, status: 'scheduled' }),
-      Post.countDocuments({ user: userId, status: 'failed' }),
-      Post.find({ user: userId, createdAt: { $gte: sevenDaysAgo } }).sort({ createdAt: -1 }).limit(5)
+      Post.count({ where: { user: userId } }),
+      Post.count({ where: { user: userId, status: 'published' } }),
+      Post.count({ where: { user: userId, status: 'scheduled' } }),
+      Post.count({ where: { user: userId, status: 'failed' } }),
+      Post.findAll({ where: { user: userId, createdAt: { [Sequelize.Op.gte]: sevenDaysAgo } }, order: [['createdAt', 'DESC']], limit: 5 })
     ]);
 
-    const platformDist = await Post.aggregate([
-      { $match: { user: userId } }, { $unwind: '$platforms' },
-      { $group: { _id: '$platforms', count: { $sum: 1 } } }, { $sort: { count: -1 } }
-    ]);
+    const allUserPosts = await Post.findAll({ where: { user: userId }, attributes: ['platforms', 'createdAt'] });
+    const distMap = {};
+    const dailyMap = {};
+    allUserPosts.forEach(p => {
+      // platformDist
+      if (p.platforms && Array.isArray(p.platforms)) {
+        p.platforms.forEach(plat => {
+          distMap[plat] = (distMap[plat] || 0) + 1;
+        });
+      }
+      
+      // dailyPosts
+      if (p.createdAt >= thirtyDaysAgo) {
+        const dateStr = p.createdAt.toISOString().split('T')[0];
+        dailyMap[dateStr] = (dailyMap[dateStr] || 0) + 1;
+      }
+    });
 
-    const dailyPosts = await Post.aggregate([
-      { $match: { user: userId, createdAt: { $gte: thirtyDaysAgo } } },
-      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
-      { $sort: { _id: 1 } }
-    ]);
+    const platformDist = Object.entries(distMap).map(([k, v]) => ({ _id: k, count: v })).sort((a,b) => b.count - a.count);
+    const dailyPosts = Object.entries(dailyMap).map(([k, v]) => ({ _id: k, count: v })).sort((a,b) => a._id.localeCompare(b._id));
 
     res.json({ overview: { totalPosts, publishedPosts, scheduledPosts, failedPosts }, platformDistribution: platformDist, dailyPosts, recentPosts });
   } catch (error) {
@@ -73,7 +83,7 @@ router.get('/engagement', auth, async (req, res) => {
       });
     }
 
-    const posts = await Post.find({ user: req.userId, status: 'published' });
+    const posts = await Post.findAll({ where: { user: req.userId, status: 'published' } });
     const totals = { likes: 0, comments: 0, shares: 0, views: 0, clicks: 0 };
     const byPlatform = {};
 

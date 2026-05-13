@@ -1,9 +1,7 @@
-import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
-import User from './models/User.js';
-import Post from './models/Post.js';
+import { User, Post, sequelize } from './models/index.js';
 
 dotenv.config();
 
@@ -12,8 +10,8 @@ const seed = async () => {
   console.log('🌱 Seeding database...');
 
   // Clean
-  await User.deleteMany({});
-  await Post.deleteMany({});
+  await User.destroy({ where: {} });
+  await Post.destroy({ where: {} });
 
   // Create demo user
   const password = await bcrypt.hash('demo123', 12);
