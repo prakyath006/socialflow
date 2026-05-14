@@ -150,8 +150,21 @@ router.get('/:platform/callback', async (req, res) => {
     const adapter = getAdapter(platform);
     const tokenData = await adapter.handleCallback(code);
 
-    // 3. Save tokens to the user's connectedPlatforms in MongoDB
+    // 3. Save tokens to the user's connectedPlatforms
     if (userId && isDbConnected()) {
+      console.log(`🔵 OAuth callback for ${platform}. tokenData keys:`, Object.keys(tokenData));
+      console.log(`🔵 tokenData.pages length:`, tokenData.pages?.length);
+      console.log(`🔵 tokenData.accountId:`, tokenData.accountId);
+
+      // For Facebook: if no pages returned, warn the user
+      if (platform === 'facebook' && (!tokenData.pages || tokenData.pages.length === 0)) {
+        console.error(`❌ Facebook returned 0 pages for user ${userId}. Check app permissions in Meta Developer Dashboard.`);
+        const appUrl = process.env.NODE_ENV === 'production'
+          ? `${req.protocol}://${req.get('host')}`
+          : 'http://localhost:3001';
+        return res.redirect(`${appUrl}/platforms?error=${encodeURIComponent('No Facebook Pages found. Make sure your Facebook App has pages_show_list and pages_manage_posts permissions approved, and you select your Pages during login.')}`);
+      }
+
       // For Facebook, save the first page as the connected account
       const connectData = {
         accessToken: tokenData.accessToken,
@@ -170,6 +183,7 @@ router.get('/:platform/callback', async (req, res) => {
         connectData.accessToken = tokenData.pages[0].access_token;
       }
 
+      console.log(`🔵 Saving connection: pageId=${connectData.pageId}, accountId=${connectData.accountId}, accountName=${connectData.accountName}`);
       await tokenManager.connectPlatform(userId, platform, connectData);
       console.log(`✅ ${platform} connected for user ${userId}`);
     }

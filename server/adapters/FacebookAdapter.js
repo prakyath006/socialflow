@@ -100,6 +100,9 @@ export default class FacebookAdapter extends BaseAdapter {
   }
 
   async handleCallback(code) {
+    console.log('🔵 Facebook handleCallback started');
+    console.log('🔵 Using redirect URI:', process.env.FACEBOOK_REDIRECT_URI);
+
     const { data } = await axios.get(`${this.apiBase}/oauth/access_token`, {
       params: {
         client_id: process.env.FACEBOOK_APP_ID,
@@ -108,6 +111,7 @@ export default class FacebookAdapter extends BaseAdapter {
         code
       }
     });
+    console.log('🔵 Short-lived token obtained');
 
     // Get long-lived token
     const { data: longLived } = await axios.get(`${this.apiBase}/oauth/access_token`, {
@@ -118,16 +122,48 @@ export default class FacebookAdapter extends BaseAdapter {
         fb_exchange_token: data.access_token
       }
     });
+    console.log('🔵 Long-lived token obtained, expires_in:', longLived.expires_in);
+
+    // Get user info first
+    try {
+      const { data: me } = await axios.get(`${this.apiBase}/me`, {
+        params: { access_token: longLived.access_token, fields: 'id,name' }
+      });
+      console.log('🔵 Facebook user:', me.id, me.name);
+    } catch (e) {
+      console.log('🔵 Could not fetch /me:', e.message);
+    }
 
     // Get user pages
     const { data: pages } = await axios.get(`${this.apiBase}/me/accounts`, {
       params: { access_token: longLived.access_token }
     });
+    console.log('🔵 Facebook /me/accounts returned:', JSON.stringify(pages));
+
+    // If no pages found, try with the short-lived token as well
+    if (!pages.data || pages.data.length === 0) {
+      console.log('🔵 No pages with long-lived token, trying short-lived...');
+      try {
+        const { data: pages2 } = await axios.get(`${this.apiBase}/me/accounts`, {
+          params: { access_token: data.access_token }
+        });
+        console.log('🔵 Short-lived /me/accounts returned:', JSON.stringify(pages2));
+        if (pages2.data && pages2.data.length > 0) {
+          pages.data = pages2.data;
+        }
+      } catch (e) {
+        console.log('🔵 Short-lived /me/accounts failed:', e.message);
+      }
+    }
+
+    if (!pages.data || pages.data.length === 0) {
+      console.error('❌ No Facebook Pages found! The user must manage at least one Facebook Page and grant pages_show_list permission.');
+    }
 
     return {
       accessToken: longLived.access_token,
       expiresIn: longLived.expires_in || 5184000,
-      pages: pages.data
+      pages: pages.data || []
     };
   }
 

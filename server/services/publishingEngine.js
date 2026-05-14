@@ -36,11 +36,13 @@ class PublishingEngine {
         }
 
         // Get credentials for this platform
-        const credentials = this.getCredentials(post.user, platformId);
-        if (!credentials) {
+        const userObj = post.User || post.user;
+        const credentials = this.getCredentials(userObj, platformId);
+        console.log(`🔑 Credentials for ${platformId}:`, JSON.stringify({ ...credentials, accessToken: '***' }));
+        if (!credentials || !credentials.pageId) {
           statusEntry.status = 'failed';
-          statusEntry.error = 'No credentials found. Please connect this platform.';
-          results.push({ platform: platformId, success: false, error: 'Not connected' });
+          statusEntry.error = `No valid ${platformId} page selected. Please reconnect and select a page.`;
+          results.push({ platform: platformId, success: false, error: 'Missing pageId' });
           continue;
         }
 
@@ -115,6 +117,7 @@ class PublishingEngine {
    * Extract credentials for a platform from user's connected platforms
    */
   getCredentials(user, platformId) {
+    if (!user || typeof user === 'string') return null;
     const conn = user.connectedPlatforms?.find(
       p => p.platform === platformId && p.isActive
     );
