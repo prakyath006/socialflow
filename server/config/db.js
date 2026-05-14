@@ -13,10 +13,8 @@ const sequelize = new Sequelize(process.env.DATABASE_URL || 'postgres://postgres
 const connectDB = async () => {
   try {
     await sequelize.authenticate();
-    // Sync models to database locally
-    if (process.env.NODE_ENV !== 'production') {
-      await sequelize.sync({ alter: true });
-    }
+    // Sync models to database (creates tables if they don't exist)
+    await sequelize.sync({ alter: true });
     console.log(`✅ PostgreSQL connected successfully`);
     return sequelize;
   } catch (error) {

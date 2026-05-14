@@ -8,7 +8,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import connectDB from './config/db.js';
+import { connectDB } from './config/db.js';
+import './models/index.js'; // Ensure models are registered
 import authRoutes from './routes/auth.js';
 import postRoutes from './routes/posts.js';
 import mediaRoutes from './routes/media.js';
@@ -21,6 +22,7 @@ dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
+app.set('trust proxy', 1);
 
 // Security & parsing
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
