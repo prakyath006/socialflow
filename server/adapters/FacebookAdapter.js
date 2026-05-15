@@ -62,7 +62,7 @@ export default class FacebookAdapter extends BaseAdapter {
 
     const { data } = await axios.post(
       `${this.apiBase}/${credentials.pageId}/photos`,
-      { message: fullText, url: media.processedPath || media.originalPath, access_token: credentials.accessToken }
+      { message: fullText, url: media.originalUrl || media.processedPath || media.originalPath, access_token: credentials.accessToken }
     );
     return data;
   }
@@ -75,7 +75,7 @@ export default class FacebookAdapter extends BaseAdapter {
       `${this.apiBase}/${credentials.pageId}/videos`,
       {
         description: fullText,
-        file_url: media.processedPath || media.originalPath,
+        file_url: media.originalUrl || media.processedPath || media.originalPath,
         access_token: credentials.accessToken
       }
     );
