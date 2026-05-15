@@ -88,7 +88,7 @@ export default class InstagramAdapter extends BaseAdapter {
     const { data } = await axios.post(
       `${this.apiBase}/${credentials.accountId}/media`,
       {
-        image_url: media.processedUrl || media.originalUrl,
+        image_url: media.processedPath || media.originalPath,
         caption,
         access_token: credentials.accessToken
       }
@@ -100,7 +100,7 @@ export default class InstagramAdapter extends BaseAdapter {
     const { data } = await axios.post(
       `${this.apiBase}/${credentials.accountId}/media`,
       {
-        video_url: media.processedUrl || media.originalUrl,
+        video_url: media.processedPath || media.originalPath,
         caption,
         media_type: 'REELS',
         access_token: credentials.accessToken
@@ -119,10 +119,10 @@ export default class InstagramAdapter extends BaseAdapter {
       };
 
       if (media.type === 'video') {
-        params.video_url = media.processedUrl || media.originalUrl;
+        params.video_url = media.processedPath || media.originalPath;
         params.media_type = 'VIDEO';
       } else {
-        params.image_url = media.processedUrl || media.originalUrl;
+        params.image_url = media.processedPath || media.originalPath;
       }
 
       const { data } = await axios.post(
