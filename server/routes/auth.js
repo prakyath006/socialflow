@@ -75,7 +75,7 @@ router.post('/login', async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET || 'dev-secret', { expiresIn: '7d' });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, timezone: user.timezone, connectedPlatforms: user.connectedPlatforms.map(p => ({ platform: p.platform, accountName: p.accountName, isActive: p.isActive })) } });
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email, timezone: user.timezone, connectedPlatforms: user.connectedPlatforms.map(p => ({ platform: p.platform, accountName: p.accountName, accountId: p.accountId, pageId: p.pageId, pageName: p.pageName, isActive: p.isActive })) } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -84,7 +84,7 @@ router.post('/login', async (req, res) => {
 // Get current user
 router.get('/me', auth, (req, res) => {
   const user = req.user;
-  res.json({ user: { id: user._id || user.id, name: user.name, email: user.email, timezone: user.timezone, avatar: user.avatar, connectedPlatforms: (user.connectedPlatforms || []).map(p => ({ platform: p.platform, accountName: p.accountName, isActive: p.isActive, tokenExpiry: p.tokenExpiry, connectedAt: p.connectedAt })), settings: user.settings } });
+  res.json({ user: { id: user._id || user.id, name: user.name, email: user.email, timezone: user.timezone, avatar: user.avatar, connectedPlatforms: (user.connectedPlatforms || []).map(p => ({ platform: p.platform, accountName: p.accountName, accountId: p.accountId, pageId: p.pageId, pageName: p.pageName, isActive: p.isActive, tokenExpiry: p.tokenExpiry, connectedAt: p.connectedAt })), settings: user.settings } });
 });
 
 // Update current user profile
@@ -101,7 +101,7 @@ router.put('/me', auth, async (req, res) => {
     const [updatedCount, updatedUsers] = await User.update(updates, { where: { _id: req.userId }, returning: true });
     const user = updatedUsers ? updatedUsers[0] : null;
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ user: { id: user._id, name: user.name, email: user.email, timezone: user.timezone, avatar: user.avatar, connectedPlatforms: user.connectedPlatforms.map(p => ({ platform: p.platform, accountName: p.accountName, isActive: p.isActive })), settings: user.settings } });
+    res.json({ user: { id: user._id, name: user.name, email: user.email, timezone: user.timezone, avatar: user.avatar, connectedPlatforms: user.connectedPlatforms.map(p => ({ platform: p.platform, accountName: p.accountName, accountId: p.accountId, pageId: p.pageId, pageName: p.pageName, isActive: p.isActive })), settings: user.settings } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -165,15 +165,15 @@ router.get('/:platform/callback', async (req, res) => {
         return res.redirect(`${appUrl}/platforms?error=${encodeURIComponent('No Facebook Pages found. Make sure your Facebook App has pages_show_list and pages_manage_posts permissions approved, and you select your Pages during login.')}`);
       }
 
-      // For Facebook, save the first page as the connected account
+      // Save the appropriate IDs depending on platform
       const connectData = {
         accessToken: tokenData.accessToken,
         refreshToken: tokenData.refreshToken,
         expiresIn: tokenData.expiresIn,
-        accountId: tokenData.pages?.[0]?.id || tokenData.accountId,
-        accountName: tokenData.pages?.[0]?.name || tokenData.accountName || platform,
-        pageId: tokenData.pages?.[0]?.id || tokenData.pageId,
-        pageName: tokenData.pages?.[0]?.name || tokenData.pageName,
+        accountId: tokenData.accountId || tokenData.pages?.[0]?.id,
+        accountName: tokenData.accountName || tokenData.pages?.[0]?.name || platform,
+        pageId: tokenData.pageId || tokenData.pages?.[0]?.id,
+        pageName: tokenData.pageName || tokenData.pages?.[0]?.name,
         scopes: tokenData.scopes,
         metadata: { pages: tokenData.pages }
       };

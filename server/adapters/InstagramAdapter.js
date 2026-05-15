@@ -4,7 +4,7 @@ import BaseAdapter from './BaseAdapter.js';
 export default class InstagramAdapter extends BaseAdapter {
   constructor(config) {
     super('instagram', config);
-    this.apiBase = 'https://graph.facebook.com/v19.0';
+    this.apiBase = 'https://graph.facebook.com/v25.0';
   }
 
   validate(post) {
@@ -150,12 +150,15 @@ export default class InstagramAdapter extends BaseAdapter {
   }
 
   getAuthUrl() {
-    const scopes = 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement';
-    return `https://www.facebook.com/v19.0/dialog/oauth?client_id=${process.env.FACEBOOK_APP_ID}&redirect_uri=${encodeURIComponent(process.env.INSTAGRAM_REDIRECT_URI || process.env.FACEBOOK_REDIRECT_URI)}&scope=${scopes}&response_type=code`;
+    const scopes = 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts,business_management';
+    return `https://www.facebook.com/v25.0/dialog/oauth?client_id=${process.env.FACEBOOK_APP_ID}&redirect_uri=${encodeURIComponent(process.env.INSTAGRAM_REDIRECT_URI || process.env.FACEBOOK_REDIRECT_URI)}&scope=${scopes}&response_type=code&auth_type=rerequest`;
   }
 
   async handleCallback(code) {
-    // Uses Facebook OAuth (Instagram Graph API is part of Facebook)
+    console.log('🟣 Instagram handleCallback started');
+    console.log('🟣 Using redirect URI:', process.env.INSTAGRAM_REDIRECT_URI || process.env.FACEBOOK_REDIRECT_URI);
+
+    // 1. Exchange code for short-lived token
     const { data } = await axios.get(`${this.apiBase}/oauth/access_token`, {
       params: {
         client_id: process.env.FACEBOOK_APP_ID,
@@ -164,27 +167,89 @@ export default class InstagramAdapter extends BaseAdapter {
         code
       }
     });
+    console.log('🟣 Short-lived token obtained');
 
-    // Get Instagram business account
+    // 2. Exchange for long-lived token
+    let userAccessToken = data.access_token;
+    let expiresIn = data.expires_in || 5184000;
+    try {
+      const { data: longLived } = await axios.get(`${this.apiBase}/oauth/access_token`, {
+        params: {
+          grant_type: 'fb_exchange_token',
+          client_id: process.env.FACEBOOK_APP_ID,
+          client_secret: process.env.FACEBOOK_APP_SECRET,
+          fb_exchange_token: data.access_token
+        }
+      });
+      userAccessToken = longLived.access_token || userAccessToken;
+      expiresIn = longLived.expires_in || expiresIn;
+      console.log('🟣 Long-lived token obtained, expires_in:', expiresIn);
+    } catch (error) {
+      console.warn('🟣 Long-lived token exchange failed:', error.response?.data?.error?.message || error.message);
+    }
+
+    // NEW: Extract target_ids from granular scopes
+    let targetPageIds = new Set();
+    try {
+      const { data: debugData } = await axios.get(`${this.apiBase}/debug_token`, {
+        params: { input_token: userAccessToken, access_token: `${process.env.FACEBOOK_APP_ID}|${process.env.FACEBOOK_APP_SECRET}` }
+      });
+      if (debugData.data?.granular_scopes) {
+        for (const scope of debugData.data.granular_scopes) {
+          if (scope.target_ids) {
+            scope.target_ids.forEach(id => targetPageIds.add(id));
+          }
+        }
+      }
+    } catch (e) {
+      console.log('🟣 debug_token failed:', e.message);
+    }
+
+    // 3. Get user pages (with long-lived token and proper fields)
     const { data: pages } = await axios.get(`${this.apiBase}/me/accounts`, {
-      params: { access_token: data.access_token }
+      params: { access_token: userAccessToken, fields: 'id,name,access_token' }
     });
+    console.log('🟣 Instagram /me/accounts returned:', JSON.stringify(pages));
 
+    if ((!pages.data || pages.data.length === 0) && targetPageIds.size > 0) {
+      console.log(`🟣 /me/accounts is empty, using target_ids: ${Array.from(targetPageIds)}`);
+      pages.data = Array.from(targetPageIds).map(id => ({ id }));
+    }
+
+    // 4. Find Instagram Business Account linked to a page
     let igAccount = null;
-    for (const page of pages.data) {
-      const { data: igData } = await axios.get(
-        `${this.apiBase}/${page.id}?fields=instagram_business_account&access_token=${data.access_token}`
-      );
-      if (igData.instagram_business_account) {
-        igAccount = { ...igData.instagram_business_account, pageAccessToken: page.access_token };
-        break;
+    let selectedPage = null;
+    for (const page of pages.data || []) {
+      const pageAccessToken = page.access_token || userAccessToken;
+      try {
+        const { data: igData } = await axios.get(
+          `${this.apiBase}/${page.id}`, {
+            params: { fields: 'instagram_business_account{id,username}', access_token: pageAccessToken }
+          }
+        );
+        console.log(`🟣 Page ${page.id} (${page.name}) IG account:`, JSON.stringify(igData.instagram_business_account));
+        if (igData.instagram_business_account) {
+          selectedPage = page;
+          igAccount = { ...igData.instagram_business_account, pageAccessToken };
+          break;
+        }
+      } catch (e) {
+        console.warn(`🟣 Failed to check IG account for page ${page.id}:`, e.message);
       }
     }
 
+    console.log('🟣 Final result: igAccount=', igAccount?.id, 'selectedPage=', selectedPage?.id);
+
     return {
-      accessToken: igAccount?.pageAccessToken || data.access_token,
+      accessToken: igAccount?.pageAccessToken || userAccessToken,
       accountId: igAccount?.id,
-      expiresIn: data.expires_in || 5184000
+      accountName: igAccount?.username ? `@${igAccount.username}` : undefined,
+      pageId: selectedPage?.id,
+      pageName: selectedPage?.name,
+      expiresIn,
+      pages: pages.data || [],
+      selectedPage,
+      instagramBusinessAccount: igAccount ? { id: igAccount.id, username: igAccount.username } : null
     };
   }
 

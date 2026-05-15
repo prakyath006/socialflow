@@ -39,10 +39,26 @@ class PublishingEngine {
         const userObj = post.User || post.user;
         const credentials = this.getCredentials(userObj, platformId);
         console.log(`🔑 Credentials for ${platformId}:`, JSON.stringify({ ...credentials, accessToken: '***' }));
-        if (!credentials || !credentials.pageId) {
+        
+        // Check the correct credential field per platform
+        const needsPageId = ['facebook'];
+        const needsAccountId = ['instagram', 'linkedin'];
+        if (!credentials) {
+          statusEntry.status = 'failed';
+          statusEntry.error = `No ${platformId} account connected. Please connect your account first.`;
+          results.push({ platform: platformId, success: false, error: 'No credentials' });
+          continue;
+        }
+        if (needsPageId.includes(platformId) && !credentials.pageId) {
           statusEntry.status = 'failed';
           statusEntry.error = `No valid ${platformId} page selected. Please reconnect and select a page.`;
           results.push({ platform: platformId, success: false, error: 'Missing pageId' });
+          continue;
+        }
+        if (needsAccountId.includes(platformId) && !credentials.accountId) {
+          statusEntry.status = 'failed';
+          statusEntry.error = `No valid ${platformId} account found. Please reconnect your account.`;
+          results.push({ platform: platformId, success: false, error: 'Missing accountId' });
           continue;
         }
 

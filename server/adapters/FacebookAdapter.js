@@ -95,7 +95,7 @@ export default class FacebookAdapter extends BaseAdapter {
   }
 
   getAuthUrl() {
-    const scopes = 'pages_manage_posts,pages_read_engagement,pages_show_list,pages_manage_metadata';
+    const scopes = 'pages_manage_posts,pages_read_engagement,pages_show_list,pages_manage_metadata,business_management';
     return `https://www.facebook.com/v25.0/dialog/oauth?client_id=${process.env.FACEBOOK_APP_ID}&redirect_uri=${encodeURIComponent(process.env.FACEBOOK_REDIRECT_URI)}&scope=${scopes}&response_type=code`;
   }
 
@@ -124,7 +124,38 @@ export default class FacebookAdapter extends BaseAdapter {
     });
     console.log('🔵 Long-lived token obtained, expires_in:', longLived.expires_in);
 
-    // Get user info first
+    // Debug: Check what permissions the token actually has
+    let targetPageIds = new Set();
+    try {
+      const { data: debugData } = await axios.get(`${this.apiBase}/debug_token`, {
+        params: { input_token: longLived.access_token, access_token: `${process.env.FACEBOOK_APP_ID}|${process.env.FACEBOOK_APP_SECRET}` }
+      });
+      console.log('🔵 Token debug info:', JSON.stringify(debugData.data?.scopes));
+      console.log('🔵 Token granular_scopes:', JSON.stringify(debugData.data?.granular_scopes));
+      
+      // Extract target_ids from granular scopes
+      if (debugData.data?.granular_scopes) {
+        for (const scope of debugData.data.granular_scopes) {
+          if (scope.target_ids) {
+            scope.target_ids.forEach(id => targetPageIds.add(id));
+          }
+        }
+      }
+    } catch (e) {
+      console.log('🔵 debug_token failed:', e.response?.data?.error?.message || e.message);
+    }
+
+    // Debug: Check granted permissions via /me/permissions
+    try {
+      const { data: permsData } = await axios.get(`${this.apiBase}/me/permissions`, {
+        params: { access_token: longLived.access_token }
+      });
+      console.log('🔵 Granted permissions:', JSON.stringify(permsData.data));
+    } catch (e) {
+      console.log('🔵 /me/permissions failed:', e.message);
+    }
+
+    // Get user info
     try {
       const { data: me } = await axios.get(`${this.apiBase}/me`, {
         params: { access_token: longLived.access_token, fields: 'id,name' }
@@ -134,9 +165,9 @@ export default class FacebookAdapter extends BaseAdapter {
       console.log('🔵 Could not fetch /me:', e.message);
     }
 
-    // Get user pages
+    // Get user pages with explicit fields
     const { data: pages } = await axios.get(`${this.apiBase}/me/accounts`, {
-      params: { access_token: longLived.access_token }
+      params: { access_token: longLived.access_token, fields: 'id,name,access_token,category' }
     });
     console.log('🔵 Facebook /me/accounts returned:', JSON.stringify(pages));
 
@@ -145,7 +176,7 @@ export default class FacebookAdapter extends BaseAdapter {
       console.log('🔵 No pages with long-lived token, trying short-lived...');
       try {
         const { data: pages2 } = await axios.get(`${this.apiBase}/me/accounts`, {
-          params: { access_token: data.access_token }
+          params: { access_token: data.access_token, fields: 'id,name,access_token,category' }
         });
         console.log('🔵 Short-lived /me/accounts returned:', JSON.stringify(pages2));
         if (pages2.data && pages2.data.length > 0) {
@@ -153,6 +184,31 @@ export default class FacebookAdapter extends BaseAdapter {
         }
       } catch (e) {
         console.log('🔵 Short-lived /me/accounts failed:', e.message);
+      }
+    }
+
+    // NEW FALLBACK: Use target_ids from debug_token if /me/accounts is empty
+    if ((!pages.data || pages.data.length === 0) && targetPageIds.size > 0) {
+      console.log(`🔵 /me/accounts is empty, but we found target_ids in granular_scopes: ${Array.from(targetPageIds)}`);
+      pages.data = [];
+      for (const pageId of targetPageIds) {
+        try {
+          const { data: pageData } = await axios.get(`${this.apiBase}/${pageId}`, {
+            params: { access_token: longLived.access_token, fields: 'id,name,access_token,category' }
+          });
+          console.log(`🔵 Fetched page directly: ${pageData.name} (${pageData.id})`);
+          
+          // If the page endpoint didn't return a page access token, we try fetching it via an admin token
+          // Or we just fall back to the user token which has granular scopes anyway
+          pages.data.push({
+            id: pageData.id,
+            name: pageData.name,
+            category: pageData.category,
+            access_token: pageData.access_token || longLived.access_token
+          });
+        } catch (e) {
+          console.log(`🔵 Failed to fetch page ${pageId} directly:`, e.response?.data?.error?.message || e.message);
+        }
       }
     }
 
