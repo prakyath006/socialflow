@@ -34,7 +34,7 @@ export default class YouTubeAdapter extends BaseAdapter {
         status: { privacyStatus: content.privacy || 'public', selfDeclaredMadeForKids: false }
       });
 
-      const videoRes = await axios.get(post.media[0].originalUrl, { responseType: 'arraybuffer' });
+      const videoRes = await axios.get(post.media[0].processedPath || post.media[0].originalPath, { responseType: 'arraybuffer' });
 
       const body = Buffer.concat([
         Buffer.from(`\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: video/mp4\r\n\r\n`),

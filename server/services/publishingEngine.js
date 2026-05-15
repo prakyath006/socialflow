@@ -42,7 +42,7 @@ class PublishingEngine {
         
         // Check the correct credential field per platform
         const needsPageId = ['facebook'];
-        const needsAccountId = ['instagram', 'linkedin'];
+        const needsAccountId = ['instagram', 'linkedin', 'youtube'];
         if (!credentials) {
           statusEntry.status = 'failed';
           statusEntry.error = `No ${platformId} account connected. Please connect your account first.`;
